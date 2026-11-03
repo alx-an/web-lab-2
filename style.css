@@ -211,6 +211,10 @@ button:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .controls label:first-child, .controls label:last-child {
+    grid-column: 1 / -1;
+  }
+
   .task {
     grid-template-columns: 22px 20px minmax(0, 1fr);
   }
