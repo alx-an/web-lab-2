@@ -95,6 +95,12 @@ document.body.append(page);
 const storageKey = "web-lab-2.tasks";
 let tasks = loadTasks();
 let editingId = null;
+let draggedId = null;
+
+function canDrag() {
+  return order.value === "manual" && !search.value.trim() && !dateFilter.value &&
+    statusFilter.value === "all" && editingId === null && tasks.length > 1;
+}
 
 function render() {
   const query = search.value.trim().toLowerCase();
@@ -109,6 +115,11 @@ function render() {
     visible.sort((first, second) => direction * first.date.localeCompare(second.date));
   }
 
+  draggedId = null;
+  hint.textContent = canDrag()
+    ? "Чтобы изменить порядок, перетащите задачу за значок ⋮⋮."
+    : "Перетаскивание доступно в ручном порядке без поиска, фильтров и редактирования.";
+  hint.hidden = tasks.length < 2;
   list.replaceChildren(...visible.map(taskRow));
   empty.textContent = tasks.length ? "Нет задач по этим условиям." : "Задач пока нет.";
   empty.hidden = visible.length > 0;
@@ -151,8 +162,55 @@ function taskRow(task) {
   const actions = element("div", "", "actions");
   actions.append(edit, remove);
   row.dataset.id = task.id;
-  row.append(checkbox, details, actions);
+  const handle = element("span", "⋮⋮", "drag-handle");
+  handle.setAttribute("aria-hidden", "true");
+  handle.draggable = canDrag();
+  if (handle.draggable) setupDrag(row, handle, task.id);
+  row.append(handle, checkbox, details, actions);
   return row;
+}
+
+function setupDrag(row, handle, id) {
+  handle.addEventListener("dragstart", event => {
+    draggedId = id;
+    event.dataTransfer.setData("text/plain", String(id));
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setDragImage(row, 16, 16);
+    row.classList.add("dragging");
+  });
+
+  handle.addEventListener("dragend", () => {
+    draggedId = null;
+    row.classList.remove("dragging");
+  });
+
+  function afterMiddle(event) {
+    const bounds = row.getBoundingClientRect();
+    return event.clientY > bounds.top + bounds.height / 2;
+  }
+
+  row.addEventListener("dragover", event => {
+    if (draggedId === null || draggedId === id) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    row.classList.toggle("drop-before", !afterMiddle(event));
+    row.classList.toggle("drop-after", afterMiddle(event));
+  });
+
+  row.addEventListener("dragleave", event => {
+    if (!row.contains(event.relatedTarget)) row.classList.remove("drop-before", "drop-after");
+  });
+
+  row.addEventListener("drop", event => {
+    if (draggedId === null || draggedId === id) return;
+    event.preventDefault();
+    const from = tasks.findIndex(task => task.id === draggedId);
+    if (from === -1) return;
+    const [moved] = tasks.splice(from, 1);
+    const target = tasks.findIndex(task => task.id === id);
+    tasks.splice(target + Number(afterMiddle(event)), 0, moved);
+    updateTasks();
+  });
 }
 
 function editForm(task) {
