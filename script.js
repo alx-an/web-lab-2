@@ -182,6 +182,9 @@ function setupDrag(row, handle, id) {
   handle.addEventListener("dragend", () => {
     draggedId = null;
     row.classList.remove("dragging");
+    for (const target of list.querySelectorAll(".drop-before, .drop-after")) {
+      target.classList.remove("drop-before", "drop-after");
+    }
   });
 
   function afterMiddle(event) {
@@ -189,13 +192,17 @@ function setupDrag(row, handle, id) {
     return event.clientY > bounds.top + bounds.height / 2;
   }
 
-  row.addEventListener("dragover", event => {
+  function showDropTarget(event) {
     if (draggedId === null || draggedId === id) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    row.classList.toggle("drop-before", !afterMiddle(event));
-    row.classList.toggle("drop-after", afterMiddle(event));
-  });
+    const after = afterMiddle(event);
+    row.classList.toggle("drop-before", !after);
+    row.classList.toggle("drop-after", after);
+  }
+
+  row.addEventListener("dragenter", showDropTarget);
+  row.addEventListener("dragover", showDropTarget);
 
   row.addEventListener("dragleave", event => {
     if (!row.contains(event.relatedTarget)) row.classList.remove("drop-before", "drop-after");

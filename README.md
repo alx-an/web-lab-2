@@ -11,3 +11,5 @@
 ## Запуск
 
 Откройте `index.html` в браузере.
+
+Опубликованная версия — [GitHub Pages](https://alx-an.github.io/web-lab-2/).
