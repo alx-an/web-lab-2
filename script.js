@@ -90,3 +90,118 @@ const list = element("ul", "", "task-list");
 tasksSection.append(element("h2", "Задачи"), controls, hint, notice, empty, list);
 page.append(heading, taskForm, tasksSection);
 document.body.append(page);
+
+let tasks = [];
+let editingId = null;
+
+function render() {
+  list.replaceChildren(...tasks.map(taskRow));
+  empty.hidden = tasks.length > 0;
+}
+
+function taskRow(task) {
+  const row = element("li", "", task.done ? "task done" : "task");
+  if (editingId === task.id) {
+    row.append(editForm(task));
+    return row;
+  }
+
+  const checkbox = input("checkbox", "done");
+  checkbox.checked = task.done;
+  checkbox.setAttribute("aria-label", "Выполнено: " + task.title);
+  checkbox.addEventListener("change", () => {
+    task.done = checkbox.checked;
+    updateTasks();
+    list.querySelector('[data-id="' + task.id + '"] input')?.focus();
+  });
+
+  const name = element("span", task.title, "task-title");
+  const date = element("time", task.date.split("-").reverse().join("."), "task-date");
+  date.dateTime = task.date;
+  const details = element("div", "", "task-details");
+  details.append(name, date);
+
+  const edit = button("Изменить");
+  edit.addEventListener("click", () => {
+    editingId = task.id;
+    render();
+    list.querySelector(".edit-form input").focus();
+  });
+  const remove = button("Удалить");
+  remove.addEventListener("click", () => {
+    tasks = tasks.filter(item => item.id !== task.id);
+    updateTasks();
+    titleField.focus();
+  });
+  const actions = element("div", "", "actions");
+  actions.append(edit, remove);
+  row.dataset.id = task.id;
+  row.append(checkbox, details, actions);
+  return row;
+}
+
+function editForm(task) {
+  const form = element("form", "", "fields edit-form");
+  const name = input("text", "title");
+  name.required = true;
+  name.value = task.title;
+  const date = input("date", "date");
+  date.required = true;
+  date.value = task.date;
+  const save = button("Сохранить", "submit");
+  save.className = "primary";
+  const cancel = button("Отмена");
+  const actions = element("div", "", "actions");
+  actions.append(save, cancel);
+  form.append(labeled("Название задачи", name), labeled("Дата", date), actions);
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    if (!validTitle(name)) return;
+    task.title = name.value.trim();
+    task.date = date.value;
+    editingId = null;
+    updateTasks();
+    focusEdit(task.id);
+  });
+
+  cancel.addEventListener("click", () => {
+    editingId = null;
+    render();
+    focusEdit(task.id);
+  });
+  return form;
+}
+
+function focusEdit(id) {
+  const edit = list.querySelector('[data-id="' + id + '"] button');
+  (edit || titleField).focus();
+}
+
+function validTitle(field) {
+  if (field.value.trim()) return true;
+  field.value = "";
+  field.reportValidity();
+  return false;
+}
+
+function updateTasks() {
+  render();
+}
+
+let nextId = 1;
+taskForm.addEventListener("submit", event => {
+  event.preventDefault();
+  if (!validTitle(titleField)) return;
+  tasks.push({
+    id: nextId++,
+    title: titleField.value.trim(),
+    date: dateField.value,
+    done: false
+  });
+  taskForm.reset();
+  updateTasks();
+  titleField.focus();
+});
+
+render();
