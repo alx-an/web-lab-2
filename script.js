@@ -95,8 +95,21 @@ let tasks = [];
 let editingId = null;
 
 function render() {
-  list.replaceChildren(...tasks.map(taskRow));
-  empty.hidden = tasks.length > 0;
+  const query = search.value.trim().toLowerCase();
+  const visible = tasks.filter(task =>
+    task.title.toLowerCase().includes(query) &&
+    (!dateFilter.value || task.date === dateFilter.value) &&
+    (statusFilter.value === "all" || task.done === (statusFilter.value === "done"))
+  );
+
+  if (order.value !== "manual") {
+    const direction = order.value === "asc" ? 1 : -1;
+    visible.sort((first, second) => direction * first.date.localeCompare(second.date));
+  }
+
+  list.replaceChildren(...visible.map(taskRow));
+  empty.textContent = tasks.length ? "Нет задач по этим условиям." : "Задач пока нет.";
+  empty.hidden = visible.length > 0;
 }
 
 function taskRow(task) {
@@ -205,3 +218,10 @@ taskForm.addEventListener("submit", event => {
 });
 
 render();
+
+for (const control of [search, dateFilter, statusFilter, order]) {
+  control.addEventListener("input", () => {
+    editingId = null;
+    render();
+  });
+}
