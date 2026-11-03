@@ -11,6 +11,7 @@ function input(type, name) {
   const field = element("input");
   field.type = type;
   field.name = name;
+  if (type === "date") field.max = "9999-12-31";
   return field;
 }
 
@@ -91,7 +92,8 @@ tasksSection.append(element("h2", "Задачи"), controls, hint, notice, empty
 page.append(heading, taskForm, tasksSection);
 document.body.append(page);
 
-let tasks = [];
+const storageKey = "web-lab-2.tasks";
+let tasks = loadTasks();
 let editingId = null;
 
 function render() {
@@ -198,7 +200,40 @@ function validTitle(field) {
   return false;
 }
 
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw === null) return [];
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) throw new Error();
+
+    const ids = new Set();
+    const date = input("date", "check");
+    const valid = saved.filter(task => {
+      if (!task || !Number.isSafeInteger(task.id) || task.id < 1 || ids.has(task.id) ||
+          typeof task.title !== "string" || !task.title.trim() ||
+          typeof task.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(task.date) ||
+          typeof task.done !== "boolean") return false;
+      date.value = task.date;
+      if (!date.value) return false;
+      ids.add(task.id);
+      return true;
+    });
+    if (valid.length !== saved.length) notice.textContent = "Некоторые задачи не удалось восстановить.";
+    return valid;
+  } catch {
+    notice.textContent = "Не удалось загрузить сохранённые задачи.";
+    return [];
+  }
+}
+
 function updateTasks() {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(tasks));
+    notice.textContent = "";
+  } catch {
+    notice.textContent = "Не удалось сохранить задачи в браузере.";
+  }
   render();
 }
 
@@ -206,6 +241,7 @@ let nextId = 1;
 taskForm.addEventListener("submit", event => {
   event.preventDefault();
   if (!validTitle(titleField)) return;
+  while (tasks.some(task => task.id === nextId)) nextId++;
   tasks.push({
     id: nextId++,
     title: titleField.value.trim(),
